@@ -100,19 +100,25 @@
     </target>
 	
 	<target name="-rewrite">
+		<echo>Rewriting JavaScript and CSS includes...</echo>
 		<for param="f">
 			<path>
 				<fileset dir="${dir.intermediate}" includes="${file.default.include}, ${file.include}" excludes="${file.default.exclude}, ${file.exclude}" />
 			</path>
 			<sequential>
-				<echo>Applying @{f}</echo>
+				<if>
+					<equals arg1="${debug}" arg2="true"/>
+					<then>
+						<echo>Rewriting @{f}</echo>
+					</then>
+				</if>
 				<apply executable="java" parallel="false" outputproperty="rewrite.files">
 					<filelist>
 		                <file name="@{f}" />
 		            </filelist>
 					<arg value="-cp"/>
 		            <arg value="./${dir.build.tools}"/>
-		            <arg value="Rewrite"/>
+		            <arg value="Rewriter"/>
 					<srcfile/>
 		        </apply>
 				
