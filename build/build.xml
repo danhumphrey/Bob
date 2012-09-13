@@ -362,9 +362,14 @@ Temporarily fixes #39
     </target>
 	
 	<target name="-tidy-images">
-		<delete>
-			<fileset dir="${dir.intermediate}/${dir.images}" includes="**/*.jpg, **/*.png" excludes="${images.bypass}, ${images.default.bypass}"/>
-		</delete>
+		<if>
+			<available file="${dir.intermediate}/${dir.images}" type="dir" />
+			<then>
+				<delete>
+					<fileset dir="${dir.intermediate}/${dir.images}" includes="**/*.jpg, **/*.png" excludes="${images.bypass}, ${images.default.bypass}"/>
+				</delete>
+			</then>
+		</if>
 	</target>
 	
 	<target name="-publish">
