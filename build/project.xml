@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!DOCTYPE project>
+<project name="Project Build"  basedir="../">
+
+    <target name="-project-build" description="(PRIVATE) This will be called by the main 'build' target">
+		<if>
+			<equals arg1="${debug}" arg2="true"/>
+			<then>
+    			<echo>-project-build started</echo>
+			</then>
+		</if>
+	</target>
+	
+	<target name="-project-clean-before" description="(PRIVATE) This will be called before the main '-clean' target">
+		<if>
+			<equals arg1="${debug}" arg2="true"/>
+			<then>
+    			<echo>-project-clean-before started</echo>
+			</then>
+		</if>
+	</target>
+	
+	<target name="-project-clean-after" description="(PRIVATE) This will be called after the main '-clean' target">
+		<if>
+			<equals arg1="${debug}" arg2="true"/>
+			<then>
+    			<echo>-project-clean-after started</echo>
+			</then>
+		</if>
+	</target>
+	
+	<target name="-project-mkdirs-before" description="(PRIVATE) This will be called before the main '-mkdirs' target">
+		<if>
+			<equals arg1="${debug}" arg2="true"/>
+			<then>
+    			<echo>-project-mkdirs-before started</echo>
+			</then>
+		</if>
+	</target>
+	
+	<target name="-project-mkdirs-after" description="(PRIVATE) This will be called after the main '-mkdirs' target">
+		<if>
+			<equals arg1="${debug}" arg2="true"/>
+			<then>
+    			<echo>-project-mkdirs-after started</echo>
+			</then>
+		</if>
+	</target>
+	
+	<target name="-project-copy-before" description="(PRIVATE) This will be called before the main '-copy' target">
+		<if>
+			<equals arg1="${debug}" arg2="true"/>
+			<then>
+    			<echo>-project-copy-before started</echo>
+			</then>
+		</if>
+	</target>
+	
+	<target name="-project-copy-after" description="(PRIVATE) This will be called after the main '-copy' target">
+		<if>
+			<equals arg1="${debug}" arg2="true"/>
+			<then>
+    			<echo>-project-copy-after started</echo>
+			</then>
+		</if>
+	</target>
+	
+</project>

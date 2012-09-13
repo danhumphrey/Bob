@@ -1,0 +1,385 @@
+<?xml version="1.0"?>
+<!DOCTYPE project>
+<project name="Bob" default="build" basedir="../"><!-- one back since we're in build/ -->
+	
+	<!-- Load in Ant-Contrib to give us access to some very useful tasks! -->
+    <taskdef resource="net/sf/antcontrib/antlib.xml">
+        <classpath>
+            <pathelement location="${basedir}/build/tools/ant-contrib-1.0b3.jar"/>
+        </classpath>
+    </taskdef>
+    
+    <tstamp>
+    	<format property="BUILDSTAMP" pattern="yyyyMMddHHmmss" locale="en,UK"/>
+  	</tstamp>
+  	
+	<var name="rewrite.all.inputs" value=""/>
+	<var name="rewrite.all.outputs" value=""/>
+	
+	<!--  Load property files -->
+    <property file="build/config/project.properties"/><property file="build/config/default.properties"/>
+    
+	
+	<!-- Build -->
+	<target name="build" depends="-clean, -mkdirs, -copy, -rewrite, -minify, -htmlcompress, -imagespng, -imagesjpg, -tidy-images, -publish, -tidy-intermediate">
+		<antcall target="-project-build"></antcall>
+	</target>
+	
+	<target name="test">
+	</target>
+	
+	<!-- 
+		****************************************************************************************
+		* Private Targets
+		****************************************************************************************
+	-->
+	<target name="-clean" depends="-project-clean-before" description="(PRIVATE) Wipe the previous build (Deletes the dir.publish directory">
+        <!-- This is a private target -->
+        <echo message="Cleaning up previous build directories..."/>
+        <delete dir="./${dir.intermediate}/"/>
+        <delete dir="./${dir.publish}/"/>
+		<antcall target="-project-clean-after"></antcall>
+    </target>
+	
+	<target name="-mkdirs" depends="-project-mkdirs-before" description="(PRIVATE) Makes the directory structures">
+	    <!-- This is a private target -->
+		<condition property="publish.exists">
+            <available file="${dir.publish}" type="dir"/>
+        </condition>
+        <condition property="intermediate.exists">
+            <available file="${dir.intermediate}" type="dir"/>
+        </condition>
+        <if>
+            <or>
+                <equals arg1="${dir.publish}" arg2="."/>
+                <equals arg1="${dir.publish}" arg2=".."/>
+                <equals arg1="${dir.publish}" arg2="/"/>
+                <equals arg1="${dir.publish}" arg2="./"/>
+                <equals arg1="${dir.publish}" arg2="../"/>
+            </or>
+            <then>
+                <fail message="Your dir.publish folder is set to ${dir.publish} which could delete your entire site or worse. Change it in project.properties"/>
+            </then>
+            <else>
+                <echo message="Creating directory structure..."/>
+            	<mkdir dir="${dir.publish}"/>
+            	<mkdir dir="${dir.intermediate}"/>
+                	
+                <if>
+                    <and>
+                        <equals arg1="${publish.exists}" arg2="true"/>
+                        <equals arg1="${intermediate.exists}" arg2="true"/>
+                    </and>
+                    <then>
+                        <echo message="The directories '${dir.publish}' and '${dir.intermediate}' already exist."/>
+                    </then>
+                    <else>
+                        <mkdir dir="${dir.intermediate}"/>
+                        <copy todir="${dir.intermediate}" includeEmptyDirs="true">
+                            <dirset dir="${dir.source}/" excludes="${file.default.exclude}, ${file.exclude}"/>
+                        </copy>
+                        
+                        <copy todir="${dir.publish}" includeEmptyDirs="true">
+                            <dirset dir="${dir.source}/" excludes="${file.default.exclude}, ${file.exclude}"/>
+                        </copy>
+                    </else>
+                </if>
+            </else>
+        </if>	
+		<antcall target="-project-mkdirs-after"></antcall>
+	</target>
+	
+	<target name="-copy" depends="-mkdirs" description="(PRIVATE) Copies the source files to the intermediate directory">
+        <!-- This is a private target -->
+        <echo message="Copying files to '${dir.publish}'..."/>
+        <copy todir="./${dir.intermediate}" includeEmptyDirs="false">
+            <fileset dir="${dir.source}/" excludes="${file.default.exclude}, ${file.exclude}">
+				<include name="**/*.*"/>
+            </fileset>
+        </copy>
+    </target>
+	
+	<target name="-rewrite">
+		<for param="f">
+			<path>
+				<fileset dir="${dir.intermediate}" includes="${file.default.include}, ${file.include}" excludes="${file.default.exclude}, ${file.exclude}" />
+			</path>
+			<sequential>
+				<echo>Applying @{f}</echo>
+				<apply executable="java" parallel="false" outputproperty="rewrite.files">
+					<filelist>
+		                <file name="@{f}" />
+		            </filelist>
+					<arg value="-cp"/>
+		            <arg value="./${dir.build.tools}"/>
+		            <arg value="Rewrite"/>
+					<srcfile/>
+		        </apply>
+				
+				<for list="${rewrite.files}" delimiter="|" param="region">
+					<sequential>
+						<propertyregex property="rewrite.main" 
+							input="@{region}"
+							regexp="([^=]*)=(.*)"
+							select="\1"
+							override="true"
+						/>
+						<propertyregex property="rewrite.inputs" 
+							input="@{region}"
+							regexp="([^=]*)=(.*)"
+							select="\2"
+							override="true"
+						/>
+						
+						<filelist id="scripts.toconcat" dir="./${dir.intermediate}/" files="${rewrite.inputs}">
+						</filelist>
+							
+						<concat destfile="./${dir.intermediate}/${rewrite.main}" overwrite="no">
+							<filelist refid="scripts.toconcat"/>
+						</concat>
+						
+						<!-- keep track of our main rewritten files -->
+						<var name="rewrite.all.inputs" value="${rewrite.all.inputs},${rewrite.inputs}"/>
+						<var name="rewrite.all.outputs" value="${rewrite.all.outputs},${rewrite.main}"/>
+						
+					</sequential>
+				</for>	
+			</sequential>
+		</for>
+		<delete>
+			<!-- 
+			<fileset dir="./${dir.intermediate}/" includes="**/*.css, **/*.js" excludes="${rewrite.all.outputs}" /> 
+			-->
+			<filelist dir="./${dir.intermediate}/" files="${rewrite.all.inputs}">
+			</filelist>
+			
+		</delete>
+	
+	</target>
+	
+	<target name="-minify">
+		<if>
+			<available file="./${dir.intermediate}/${dir.css}/" type="dir" />
+			<then>
+				<apply executable="java" parallel="false">
+		            <fileset dir="./${dir.intermediate}/${dir.css}/" includes="**/*.css"/>
+		            <arg line="-jar"/>
+		            <arg path="${dir.build.tools}/${tool.yuicompressor}"/>
+					<srcfile/>
+		            <arg line="-o"/>
+		            <mapper type="glob" from="*.css" to="../${dir.intermediate}/${dir.css}/*-min.css"/>
+					<targetfile/>
+		        </apply>
+				
+				<move todir="./${dir.intermediate}/${dir.css}/" overwrite="true" >
+					<fileset dir="./${dir.intermediate}/${dir.css}/" />
+					<mapper type="glob" from="*-min.css" to="*.css" />
+				</move>
+			</then>
+		</if>
+		
+		<if>
+			<available file="./${dir.intermediate}/${dir.js}/" type="dir" />
+			<then>
+				<apply executable="java" parallel="false">
+		            <fileset dir="./${dir.intermediate}/${dir.js}/" includes="**/*.js"/>
+		            <arg line="-jar"/>
+		            <arg path="${dir.build.tools}/${tool.yuicompressor}"/>
+					<srcfile/>
+		            <arg line="-o"/>
+		            <mapper type="glob" from="*.js" to="../${dir.intermediate}/${dir.js}/*-min.js"/>
+					<targetfile/>
+		        </apply>
+				
+				<move todir="./${dir.intermediate}/${dir.js}/" overwrite="true">
+					<fileset dir="./${dir.intermediate}/${dir.js}/" />
+					<mapper type="glob" from="*-min.js" to="*.js" />
+				</move>
+			</then>
+		</if>
+	</target>
+	
+	<target name="-htmlcompress" depends="-rewrite">
+		
+		<fileset id="files.2compress" dir="${dir.intermediate}" includes="${file.default.include}, ${file.include}" excludes="${file.default.exclude}, ${file.exclude}" />
+		
+        <echo message="Run htmlcompressor on the HTML"/>
+        <echo message=" - removing unnecessary whitespace"/>
+        <echo message=" - removing html comments"/>
+        <echo message=" - compressing inline style/script tag contents"/>
+        <apply executable="java" parallel="false">
+            <fileset refid="files.2compress"></fileset>
+            <arg value="-jar"/>
+            <arg path="${dir.build.tools}/${tool.htmlcompressor}"/>
+            <arg line="--remove-quotes"/>
+            <arg line="--compress-js"/>
+            <arg line="--compress-css"/>
+            <arg line="--preserve-php"/>
+            <arg line="--preserve-ssi"/>
+            <srcfile/>
+            <arg value="-o"/>
+            <mapper type="glob" from="*" to="${basedir}/${dir.publish}/*"/>
+            <targetfile/>
+        </apply>
+		
+		<delete>
+			<fileset refid="files.2compress"></fileset>
+		</delete>
+    </target>
+	
+	<!-- IMAGES -->
+    <target name="-imagespng" depends="-mkdirs" description="(PRIVATE) Optimizes .png images using optipng">
+        <echo message="Optimizing images..."/>
+        <echo message="This part might take a while. But everything else is already done."/>
+        <echo message=" "/>
+        <echo message="First, we run optipng on the .png files..."/>
+        <if>
+            <equals arg1="${images.strip.metadata}" arg2="true"/>
+            <then>
+                <var name="strip-meta-tags" value="-strip all"/>
+            </then>
+            <else>
+                <var name="strip-meta-tags" value=""/>
+            </else>
+        </if>
+        <!-- osfamily=unix is actually true on OS X as well -->
+        <!-- On *nix's and OS X, check for optipng and give a helpful message if it's not installed -->
+        <if>
+            <and>
+                <os family="unix" />
+                <available file="optipng" filepath="${ENV.PATH}" />
+            </and>
+            <then>
+                <!-- work around https://sourceforge.net/tracker/?func=detail&aid=2671422&group_id=151404&atid=780916 -->
+                <delete>
+                    <fileset dir="./${dir.publish}/${dir.images}/">
+                        <include name="**/*.png"/>
+                    </fileset>
+                </delete>
+                <apply executable="optipng" dest="./${dir.publish}/${dir.images}/" osfamily="unix">
+                    <fileset dir="./${dir.intermediate}/${dir.images}/" includes="**/*.png" excludes="${images.bypass}, ${images.default.bypass}"/>
+                    <arg value="-quiet"/>
+                    <arg value="-o7"/>
+                    <!--
+Temporarily fixes #39
+<arg value="${strip-meta-tags}"/>
+-->
+                    <arg value="-out"/>
+                    <targetfile/>
+                    <srcfile/>
+                    <mapper type="identity"/>
+                </apply>
+            </then>
+            <elseif>
+                <os family="unix" />
+                <then>
+                    <echo message="*** optipng NOT INSTALLED. SKIPPING OPTIMIZATION OF PNGs." />
+                    <echo message="*** Install optipng to enable png optimization." />
+                    <echo message="*** For instructions see 'Dependencies' at: https://github.com/h5bp/ant-build-script/wiki/Platform" />
+                </then>
+            </elseif>
+            <elseif>
+                <os family="windows" />
+                <!-- work around https://sourceforge.net/tracker/?func=detail&aid=2671422&group_id=151404&atid=780916 -->
+                <then>
+                  <if>
+                    <available file="./${dir.publish}/${dir.images}/"/>
+                      <then>
+                      <delete>
+                        <fileset dir="./${dir.publish}/${dir.images}/">
+                            <include name="**/*.png"/>
+                        </fileset>
+                      </delete>
+                    </then>
+                  </if>
+                    <apply executable="${basedir}/${dir.build.tools}/optipng-0.7-win32/optipng.exe" dest="./${dir.publish}/${dir.images}/" osfamily="windows">
+                        <fileset dir="./${dir.intermediate}/${dir.images}/" includes="**/*.png" excludes="${images.bypass}, ${images.default.bypass}"/>
+                        <arg value="-quiet"/>
+                        <arg value="-o7"/>
+                        <arg value="${strip-meta-tags}"/>
+                        <arg value="-out"/>
+                        <targetfile/>
+                        <srcfile/>
+                        <mapper type="identity"/>
+                    </apply>
+                </then>
+            </elseif>
+        </if>
+    </target>
+    <target name="-imagesjpg" depends="-mkdirs" description="(PRIVATE) Optimizes .jpg images using jpegtan">
+        <echo message="Now, we clean up those jpgs..."/>
+        <if>
+            <equals arg1="${images.strip.metadata}" arg2="true"/>
+            <then>
+                <var name="strip-meta-tags" value="none"/>
+            </then>
+            <else>
+                <var name="strip-meta-tags" value="all"/>
+            </else>
+        </if>
+        
+        <!-- On *nix's and OS X, check for jpegtran and give a helpful message if it's not installed -->
+        <if>
+            <and>
+                <os family="unix" />
+                <available file="jpegtran" filepath="${ENV.PATH}" />
+            </and>
+            <then>
+                <apply executable="jpegtran" dest="./${dir.publish}/${dir.images}" osfamily="unix">
+                    <fileset dir="${dir.intermediate}/${dir.images}" includes="**/*.jpg" excludes="${images.bypass}, ${images.default.bypass}"/>
+                    <arg value="-copy"/>
+                    <arg value="${strip-meta-tags}"/>
+                    <arg value="-optimize"/>
+                    <arg value="-outfile"/>
+                    <targetfile/>
+                    <srcfile/>
+                    <mapper type="identity"/>
+                    <!-- you may want to flag optimized images. If so, do it here. Otherwise change this to type="identity" -->
+                    <!--<mapper type="glob" from="*.jpg" to="*.jpg"/>-->
+                </apply>
+            </then>
+            <elseif>
+                <os family="unix" />
+                <then>
+                    <echo message="*** jpegtran NOT INSTALLED. SKIPPING OPTIMIZATION OF JPEGs." />
+                    <echo message="*** Install jpegtran to enable jpeg optimization." />
+                    <echo message="*** For instructions see 'Dependencies' at: https://github.com/h5bp/ant-build-script/wiki/Platform" />
+                </then>
+            </elseif>
+        </if>
+        <apply executable="${basedir}/${dir.build.tools}/jpegtran.exe" dest="./${dir.publish}/${dir.images}" osfamily="windows">
+            <fileset dir="${dir.intermediate}/${dir.images}" includes="**/*.jpg" excludes="${images.bypass}, ${images.default.bypass}"/>
+            <arg value="-copy"/>
+            <arg value="${strip-meta-tags}"/>
+            <arg value="-optimize"/>
+            <arg value="-outfile"/>
+            <targetfile/>
+            <srcfile/>
+            <mapper type="identity"/>
+            <!-- you may want to flag optimized images. If so, do it here. Otherwise change this to type="identity" -->
+            <!--<mapper type="glob" from="*.jpg" to="*.jpg"/>-->
+        </apply>
+    </target>
+	
+	<target name="-tidy-images">
+		<delete>
+			<fileset dir="${dir.intermediate}/${dir.images}" includes="**/*.jpg, **/*.png" excludes="${images.bypass}, ${images.default.bypass}"/>
+		</delete>
+	</target>
+	
+	<target name="-publish">
+		<copy todir="./${dir.publish}" includeEmptyDirs="false">
+            <fileset dir="${dir.intermediate}/" >
+				<include name="**/*.*"/>
+            </fileset>
+        </copy>
+	</target>
+	
+	<target name="-tidy-intermediate">
+		<delete dir="./${dir.intermediate}/"/>
+	</target>
+	<!-- import project build file-->
+	<import file="./project.xml" />
+	
+	
+</project>
