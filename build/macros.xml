@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!DOCTYPE project>
+<project name="Project Macros"  basedir="../">
+	
+	<macrodef name="rewrite-php-defines">
+        <attribute name="input" />
+        <sequential>
+        	<if>
+				<available file="@{input}" type="file" />
+				<then>
+					<replaceregexp 
+						file="@{input}"
+						match="define\s?\((.*),\s?('?.*'?)\);\s?\/\/(.*)"
+						replace="define (\1, \3);"
+						byline="true"
+					/>
+				</then>
+			</if>
+        </sequential>
+    </macrodef>
+
+</project>

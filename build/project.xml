@@ -3,12 +3,11 @@
 <project name="Project Build"  basedir="../">
 
     <target name="-project-build" description="(PRIVATE) This will be called by the main 'build' target">
-		<if>
-			<equals arg1="${debug}" arg2="true"/>
-			<then>
-    			<echo>-project-build started</echo>
-			</then>
-		</if>
+		<!-- project specific -->
+    	
+    	<!-- eg. call macros (uncomment import at the bottom of this file to import macros) -->
+    	<!-- <rewrite-php-defines input="${dir.publish}/constants.php" /> -->
+    	
 	</target>
 	
 	<target name="-project-clean-before" description="(PRIVATE) This will be called before the main '-clean' target">
@@ -64,5 +63,8 @@
 			</then>
 		</if>
 	</target>
+	
+	<!-- import macros file-->
+	<!-- <import file="./macros.xml" /> -->
 	
 </project>

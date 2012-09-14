@@ -389,8 +389,8 @@ Temporarily fixes #39
 	<target name="-tidy-intermediate">
 		<delete dir="./${dir.intermediate}/"/>
 	</target>
+	
 	<!-- import project build file-->
 	<import file="./project.xml" />
-	
 	
 </project>
