@@ -121,7 +121,13 @@
 		            <arg value="Rewriter"/>
 					<srcfile/>
 		        </apply>
-				
+				<if>
+					<equals arg1="${debug}" arg2="true"/>
+					<then>
+						<echo>Files to rewrite:</echo>
+						<echo>${rewrite.files}</echo>
+					</then>
+				</if>
 				<for list="${rewrite.files}" delimiter="|" param="region">
 					<sequential>
 						<propertyregex property="rewrite.main" 

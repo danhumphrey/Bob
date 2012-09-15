@@ -1,14 +1,10 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.Charset;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,7 +15,7 @@ public class Rewriter {
 	private static final String FILE_PATH_REGEX = "(?:href|src)=\"?([^\"\\s]*)";
 	private static String sourceFile;
 	private static String sourceText;
-	private static HashSet<RewriteRegion> regions = new HashSet<RewriteRegion>();
+	private static LinkedHashSet<RewriteRegion> regions = new LinkedHashSet<RewriteRegion>();
 	
 	private static final String CSS_REPLACE = "<link rel=\"stylesheet\" type=\"text/css\" media=\"all\"  href=\"%s?v=%s\" />";
 	private static final String JS_REPLACE = "<script type=\"text/javascript\" src=\"%s?v=%s\"></script>";
@@ -111,7 +107,7 @@ public class Rewriter {
 	private static class RewriteRegion {
 		private String src;
 		private String outputFile;
-		private HashSet<String> inputFiles = new HashSet<String>();
+		private LinkedHashSet<String> inputFiles = new LinkedHashSet<String>();
 		
 		public RewriteRegion(String src, String outputFile, String inputFiles) {
 			this.src = src;
